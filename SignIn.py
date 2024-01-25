@@ -37,10 +37,10 @@ def twoDigit(num):
     return num
 
 # for tkinter window
-def show():
+def save():
     # label.config(text = clicked.get())
     ni = nameInput.get()
-    print("Name: ", ni)
+    print(ni + " saved")
     students[tempID].name = nameInput.get()
     students[tempID].course = clicked.get()
     return
@@ -90,7 +90,7 @@ while(tempID != "exit" and  d.now().strftime("%H") != "17"):
             clicked = StringVar()
             clicked.set("Select Course")
             drop = OptionMenu(root, clicked, *courses)
-            saveButton = Button(root, text = "Save Data", command = show)
+            saveButton = Button(root, text = "Save Data", command = save)
             
             nameLabel.place(x=20 , y=20)
             nameInput.place(x=110 , y=20)
@@ -151,9 +151,11 @@ for signedIn in students:
         students[signedIn].timeElapsed = students[signedIn].timeElapsed + tempElapsed
 
         # make string to be written 
-        studentData = students[signedIn].ID + "," + students[signedIn].prettyTimeIn + "," 
+        studentData = students[signedIn].ID + "," + students[signedIn].name + "," 
+        studentData = studentData + students[signedIn].prettyTimeIn + "," 
         studentData = studentData + students[signedIn].prettyTimeOut + ","
-        studentData = studentData + convertTime(students[signedIn].timeElapsed) + "\n"
+        studentData = studentData + convertTime(students[signedIn].timeElapsed)
+        studentData = studentData + students[signedIn].course + "\n"
 
         file.write(studentData)
 
@@ -169,3 +171,8 @@ numPresent = 0
 print("Everyone signed out.")
 
 file.close()
+
+#write updated dictionary to memory
+with open("students_data.pkl", "wb") as fp:
+    pickle.dump(students, fp)
+    fp.close()
