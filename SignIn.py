@@ -1,19 +1,22 @@
+from tkinter import *
+import csv
 from colorama import Fore, Back, Style
 import getpass
 import pickle
 import time as t
 from datetime import datetime as d
 
-
 class Student:
     ID = "" 
     name = ""
+    course = ""
     timeIn = None 
     timeOut = None 
     prettyTimeIn = None 
     prettyTimeOut = None 
     timeElapsed = 0
     present = False  
+    
 
     def __init__(self, ID, timeIn, prettyTimeIn, present):
         self.ID = ID 
@@ -33,36 +36,76 @@ def twoDigit(num):
         return "0" + num 
     return num
 
-#students = {}
+# for tkinter window
+def show():
+    # label.config(text = clicked.get())
+    ni = nameInput.get()
+    print("Name: ", ni)
+    students[tempID].name = nameInput.get()
+    students[tempID].course = clicked.get()
+    return
+
+    
+# imports course spreadsheet to list
+with open('Courses.csv', newline='') as courseSheet:
+    reader = csv.reader(courseSheet)
+    coursesTemp = list(reader)
+
+# we have to do this to reduce the dimension of the courses list
+# otherwise, the dropdown menu with have curly braces
+courses = []
+
+for c1 in coursesTemp:
+    for c2 in c1:
+        courses.append(c2) 
 
 #read in dictionary from previous day
 with open("students_data.pkl", "rb") as fp:
     students = pickle.load(fp)
-    print("PRINTING STUDENTS DICTIONARY")
-    print(students)
+
 
 numPresent = 0 
-
-tempID = getpass.getpass(prompt="Welcome to the Math Center\nAwaiting card swipe...")
+tempID = 0
 
 file = open("MC_Attendance_Fall23.csv", "a", encoding="utf-8")
 
+print("Welcome to the Math Center\n")
+
 while(tempID != "exit" and  d.now().strftime("%H") != "17"):
-        
+      
+    print(Fore.WHITE + "Input student ID: ")
+    tempID = input()  
+
     # if the student has not beeen signed in today
     if tempID not in students and tempID != "exit":
 
         numPresent += 1
         students[tempID] = Student(tempID, t.time(), d.now().strftime("%m-%d-%Y, %H:%M:%S"), True)
         if students[tempID].name == "":
-            print(Fore.RED + "NEW STUDENT HAS BEEN SWIPED, PLEASE INPUT STUDENT NAME" + Fore.BLACK)
-            students[tempID].name = input()
-        print(Fore.MAGENTA + students[tempID].name + " signed in at " + students[tempID].prettyTimeIn + "for the first time today.")
+           
+            root = Tk()
+            root.geometry("400x400")
+            nameLabel = Label(root, text="Student Name: ")
+            nameInput = Entry(root)
+            clicked = StringVar()
+            clicked.set("Select Course")
+            drop = OptionMenu(root, clicked, *courses)
+            saveButton = Button(root, text = "Save Data", command = show)
+            
+            nameLabel.place(x=20 , y=20)
+            nameInput.place(x=110 , y=20)
+            drop.place(x=110 , y=50)
+            saveButton.place(x=110 , y=90)
+            
+            root.mainloop()
+            
+        print(Fore.MAGENTA + students[tempID].name + " signed in at " + students[tempID].prettyTimeIn + " for the first time today.")
+        print(students[tempID].name, "is taking ", students[tempID].course)
         print(Fore.BLUE + "There are currently " + str(numPresent) + " students in the Math Center.")
         
 
     # if they're currently signed in 
-    elif students[tempID].present: 
+    elif tempID != "exit" and students[tempID].present: 
 
         numPresent -= 1
         # save time out and time elapsed in variables
@@ -88,7 +131,7 @@ while(tempID != "exit" and  d.now().strftime("%H") != "17"):
         print(Fore.BLUE + "There are currently " + str(numPresent) + " students in the Math Center.")
 
     # otherwise, they have been signed in before, but are not currently
-    else: 
+    elif tempID != "exit": 
 
         numPresent += 1
         students[tempID].timeIn = t.time()
@@ -96,8 +139,6 @@ while(tempID != "exit" and  d.now().strftime("%H") != "17"):
 
         print(Fore.GREEN + students[tempID].name + " signed back in at " + t.strftime("%H:%M:%S"))
         print(Fore.BLUE + "There are currently " + str(numPresent) + " students in the Math Center.")
-
-    tempID = getpass.getpass(prompt="")
 
 # Now sign everyone out
 for signedIn in students: 
@@ -125,11 +166,6 @@ for signedIn in students:
         print(Fore.GREEN + students[signedIn].name + " spent " + convertTime(students[signedIn].timeElapsed) + " at the Math center.")
 
 numPresent = 0
-print(Fore.BLACK + "Everyone signed out.")
+print("Everyone signed out.")
 
 file.close()
-
-#write updated dictionary to memory
-with open("students_data.pkl", "wb") as fp:
-    pickle.dump(students, fp)
-    fp.close()
