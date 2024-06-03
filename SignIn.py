@@ -16,6 +16,7 @@ class Student:
     prettyTimeOut = None 
     timeElapsed = 0
     present = False  
+    canceled = False
     
 
     def __init__(self, ID, timeIn, prettyTimeIn, present):
@@ -24,7 +25,7 @@ class Student:
         self.prettyTimeIn = prettyTimeIn
         self.present = present
 
-
+# start functions
 def convertTime(time):
     hours = twoDigit(str(int(time//3600)))
     minutes = twoDigit(str((int(time%3600)//60)))
@@ -38,51 +39,84 @@ def twoDigit(num):
 
 # for tkinter window
 def save():
-    # label.config(text = clicked.get())
     ni = nameInput.get()
     print(ni + " saved")
     students[tempID].name = nameInput.get()
     students[tempID].course = clicked.get()
+    students[tempID].canceled = False
     return
 
-    
-# imports course spreadsheet to list
-with open('Courses.csv', newline='') as courseSheet:
-    reader = csv.reader(courseSheet)
-    coursesTemp = list(reader)
+def cancel():
+    students[tempID].canceled = True
+    root.destroy()
+    return
 
-# we have to do this to reduce the dimension of the courses list
-# otherwise, the dropdown menu with have curly braces
-courses = []
+def savePickle(fileName):
+    with open(fileName, "wb") as fp:
+        pickle.dump(students, fp)
+        fp.close()
 
-for c1 in coursesTemp:
-    for c2 in c1:
-        courses.append(c2) 
+def saveAttendance(fileName, ID_num):
+
+    # make string to be written 
+    studentData = students[ID_num].ID + "," + students[ID_num].name + "," 
+    studentData = studentData + students[ID_num].prettyTimeIn + "," 
+    studentData = studentData + students[ID_num].prettyTimeOut + ","
+    studentData = studentData + convertTime(students[ID_num].timeElapsed) + ","
+    studentData = studentData + students[ID_num].course + "\n"
+
+    file = open("MC_Attendance_Fall23.csv", "a", encoding="utf-8")
+    file.write(studentData)
+    file.close
+# end functions
+
 
 #read in dictionary from previous day
 with open("students_data.pkl", "rb") as fp:
     students = pickle.load(fp)
 
 
-numPresent = 0 
+numPresent = sum(bool(students[ID].present) for ID in students)
 tempID = 0
-
-file = open("MC_Attendance_Fall23.csv", "a", encoding="utf-8")
+attendanceFile = "MC_Attendance_Fall23.csv"
 
 print("Welcome to the Math Center\n")
 
-while(tempID != "exit" and  d.now().strftime("%H") != "17"):
+while(tempID != "exit"):
       
-    print(Fore.WHITE + "Input student ID: ")
-    tempID = input()  
+    tempID = input(Fore.BLACK + "Input student ID: ")
+
+    if tempID == "report":
+        for signedIn in students: 
+            if students[signedIn].present:
+                print(Fore.GREEN + students[signedIn].name + " " + students[signedIn].course)
+        continue
+                
 
     # if the student has not beeen signed in today
     if tempID not in students and tempID != "exit":
 
-        numPresent += 1
         students[tempID] = Student(tempID, t.time(), d.now().strftime("%m-%d-%Y, %H:%M:%S"), True)
+        
         if students[tempID].name == "":
-           
+
+
+            # imports course spreadsheet to list
+            with open('Courses.csv', newline='') as courseSheet:
+                reader = csv.reader(courseSheet)
+                coursesTemp = list(reader)
+                
+            # we have to do this to reduce the dimension of the courses list
+            # otherwise, the dropdown menu with have curly braces
+            courses = []
+
+            for c1 in coursesTemp:
+                for c2 in c1:
+                    courses.append(c2) 
+
+            students[tempID].canceled = True
+
+            # start window
             root = Tk()
             root.geometry("400x400")
             nameLabel = Label(root, text="Student Name: ")
@@ -91,16 +125,26 @@ while(tempID != "exit" and  d.now().strftime("%H") != "17"):
             clicked.set("Select Course")
             drop = OptionMenu(root, clicked, *courses)
             saveButton = Button(root, text = "Save Data", command = save)
+            cancelButton = Button(root, text = "Cancel", command = cancel)
             
             nameLabel.place(x=20 , y=20)
             nameInput.place(x=110 , y=20)
             drop.place(x=110 , y=50)
-            saveButton.place(x=110 , y=90)
+            saveButton.place(x=135 , y=90)
+            cancelButton.place(x=140, y=130)
             
             root.mainloop()
+        # end window
             
+        if students[tempID].canceled:
+            students.pop(tempID)
+            print("Student canceled!")
+            continue
+
+        numPresent += 1
+
         print(Fore.MAGENTA + students[tempID].name + " signed in at " + students[tempID].prettyTimeIn + " for the first time today.")
-        print(students[tempID].name, "is taking ", students[tempID].course)
+        print(students[tempID].name + "is taking " + students[tempID].course)
         print(Fore.BLUE + "There are currently " + str(numPresent) + " students in the Math Center.")
         
 
@@ -108,18 +152,14 @@ while(tempID != "exit" and  d.now().strftime("%H") != "17"):
     elif tempID != "exit" and students[tempID].present: 
 
         numPresent -= 1
+
         # save time out and time elapsed in variables
         students[tempID].timeOut = t.time()
         students[tempID].prettyTimeOut = d.now().strftime("%H:%M:%S")
         tempElapsed = students[tempID].timeOut - students[tempID].timeIn
         students[tempID].timeElapsed = students[tempID].timeElapsed + tempElapsed
 
-        # make string to be written 
-        studentData = students[tempID].ID + "," + students[tempID].prettyTimeIn + "," 
-        studentData = studentData + students[tempID].prettyTimeOut + ","
-        studentData = studentData + convertTime(students[tempID].timeElapsed) + "\n"
-
-        file.write(studentData)
+        saveAttendance(attendanceFile, tempID)
 
         # reset student to be checked in again later
         students[tempID].timeIn = None 
@@ -135,11 +175,15 @@ while(tempID != "exit" and  d.now().strftime("%H") != "17"):
 
         numPresent += 1
         students[tempID].timeIn = t.time()
+        students[tempID].prettyTimeIn = d.now().strftime("%m-%d-%Y, %H:%M:%S")
         students[tempID].present = True
 
         print(Fore.GREEN + students[tempID].name + " signed back in at " + t.strftime("%H:%M:%S"))
+        print(students[tempID].name, "is taking ", students[tempID].course)
         print(Fore.BLUE + "There are currently " + str(numPresent) + " students in the Math Center.")
 
+    savePickle("students_data.pkl")
+    
 # Now sign everyone out
 for signedIn in students: 
     if students[signedIn].present: 
@@ -150,14 +194,7 @@ for signedIn in students:
         tempElapsed = students[signedIn].timeOut - students[signedIn].timeIn
         students[signedIn].timeElapsed = students[signedIn].timeElapsed + tempElapsed
 
-        # make string to be written 
-        studentData = students[signedIn].ID + "," + students[signedIn].name + "," 
-        studentData = studentData + students[signedIn].prettyTimeIn + "," 
-        studentData = studentData + students[signedIn].prettyTimeOut + ","
-        studentData = studentData + convertTime(students[signedIn].timeElapsed)
-        studentData = studentData + students[signedIn].course + "\n"
-
-        file.write(studentData)
+        saveAttendance(attendanceFile, signedIn)
 
         # reset student to be checked in again later
         students[signedIn].timeIn = None 
@@ -168,11 +205,7 @@ for signedIn in students:
         print(Fore.GREEN + students[signedIn].name + " spent " + convertTime(students[signedIn].timeElapsed) + " at the Math center.")
 
 numPresent = 0
-print("Everyone signed out.")
-
-file.close()
+print(Fore.BLACK + "Everyone signed out.")
 
 #write updated dictionary to memory
-with open("students_data.pkl", "wb") as fp:
-    pickle.dump(students, fp)
-    fp.close()
+savePickle("students_data.pkl")
